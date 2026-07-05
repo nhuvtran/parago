@@ -1,4 +1,7 @@
 import { parseProductMeta } from './lib/parseProduct.js';
+import { getSettings } from './settings/storage.js';
+import { CONFIG } from './config.js';
+import { resolveFunctionsBaseUrl, isAllowedFetchOrigin } from './relay/selectRelay.js';
 
 // MV3 background service worker. Content scripts can't make host-permission'd
 // cross-origin fetches in MV3, so the relay sends a message here and we fetch.
@@ -7,6 +10,17 @@ async function doFetch({ url, options }) {
   let body = null;
   try { body = await res.json(); } catch { body = null; }
   return { ok: res.ok, status: res.status, body };
+}
+
+// parago_fetch is a credential-capable proxy (the worker holds the amazon.com and
+// supabase host permissions), so constrain it to the one origin it legitimately
+// targets: the configured Supabase Edge Functions base. Derived from settings so a
+// custom/self-hosted functions URL still works, while an arbitrary caller-supplied
+// URL (SSRF, cross-origin cookie replay) is rejected. Pairs with the sender.id gate
+// below; today nothing external can reach this handler, this keeps it that way if a
+// future change ever adds externally_connectable or a page bridge.
+async function fetchOriginAllowed(url) {
+  return isAllowedFetchOrigin(url, resolveFunctionsBaseUrl(await getSettings(), CONFIG));
 }
 
 // Fetch a product page and extract rating/reviewCount for enrichment. A programmatic
@@ -33,8 +47,19 @@ async function productMeta(asin) {
 const placementClaims = new Set();
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  // Only this extension's own isolated-world scripts may drive these privileged
+  // handlers. No externally_connectable is declared and there is no page->content
+  // bridge, so a sender.id that isn't ours means a future misconfig, not a real
+  // caller. Reject rather than trust. (Legit internal messages always carry our id.)
+  if (!_sender || _sender.id !== chrome.runtime.id) return false;
   if (msg && msg.type === 'parago_fetch') {
-    doFetch(msg).then(sendResponse).catch((e) => sendResponse({ ok: false, status: 0, body: null, error: String(e) }));
+    (async () => {
+      if (!(await fetchOriginAllowed(msg.url))) {
+        return sendResponse({ ok: false, status: 0, body: null, error: 'blocked_origin' });
+      }
+      try { sendResponse(await doFetch(msg)); }
+      catch (e) { sendResponse({ ok: false, status: 0, body: null, error: String(e) }); }
+    })();
     return true; // keep the channel open for the async response
   }
   if (msg && msg.type === 'parago_claim_placement' && msg.id) {
@@ -50,34 +75,27 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   return false;
 });
 
-// Persistent "running" indicator. A green badge on the toolbar icon on EVERY site,
-// so Parago visibly shows it is active even when you are not on Amazon. The badge
-// is a global action badge (no tabId), so it persists across pages and survives the
-// service worker sleeping. It reflects whether any protection is on (search filter
-// or guardian approval); when everything is off, the badge is cleared.
-const BADGE_DEFAULTS = { mode: 'grey', guardianMode: 'off' };
+// No toolbar badge. Protection on/off is shown only in the popup power toggle, so the
+// toolbar icon stays plain (the persistent green badge was removed by request).
 
-function paragoIsActive(s) {
-  return (s.mode && s.mode !== 'off') || (s.guardianMode && s.guardianMode !== 'off');
+// Supabase keepalive. The free tier pauses a project after ~7 days of no activity,
+// which silently breaks email approval. A periodic ping (a clean DB read via
+// get-status with a valid but nonexistent uuid) keeps it warm. This fires only
+// while the browser is running; the scheduled GitHub Action in
+// .github/workflows/keepalive.yml is the 24/7 backstop for when it is closed.
+const KEEPALIVE_ALARM = 'parago_keepalive';
+const KEEPALIVE_PERIOD_MIN = 6 * 60; // every 6h while the browser is open
+const KEEPALIVE_UUID = '00000000-0000-0000-0000-000000000000'; // valid uuid, no row: clean 404 (the SELECT still runs)
+
+async function keepalivePing() {
+  try {
+    const base = resolveFunctionsBaseUrl(await getSettings(), CONFIG);
+    if (!/^https?:\/\//i.test(base) || base.includes('<PROJECT_REF>')) return; // backend not configured
+    await fetch(`${base}/get-status?id=${KEEPALIVE_UUID}`).catch(() => {});
+  } catch (e) { /* no-op: keepalive is best-effort */ }
 }
 
-function updateBadge() {
-  chrome.storage.sync.get(BADGE_DEFAULTS, (got) => {
-    const s = (chrome.runtime && chrome.runtime.lastError) ? BADGE_DEFAULTS : got;
-    if (paragoIsActive(s)) {
-      chrome.action.setBadgeBackgroundColor({ color: '#1f8a4c' });
-      if (chrome.action.setBadgeTextColor) chrome.action.setBadgeTextColor({ color: '#ffffff' });
-      chrome.action.setBadgeText({ text: '●' });
-      chrome.action.setTitle({ title: 'Parago: protection on' });
-    } else {
-      chrome.action.setBadgeText({ text: '' });
-      chrome.action.setTitle({ title: 'Parago: protection off' });
-    }
-  });
+if (typeof chrome !== 'undefined' && chrome.alarms) {
+  chrome.alarms.create(KEEPALIVE_ALARM, { periodInMinutes: KEEPALIVE_PERIOD_MIN, delayInMinutes: 1 });
+  chrome.alarms.onAlarm.addListener((a) => { if (a && a.name === KEEPALIVE_ALARM) keepalivePing(); });
 }
-
-chrome.runtime.onInstalled.addListener(updateBadge);
-chrome.runtime.onStartup.addListener(updateBadge);
-chrome.storage.onChanged.addListener((changes, area) => { if (area === 'sync') updateBadge(); });
-// Set it as soon as the service worker wakes.
-updateBadge();

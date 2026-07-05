@@ -1,0 +1,24 @@
+name: Supabase keepalive
+
+# Supabase's free tier pauses a project after ~7 days of inactivity, which
+# silently breaks email approval. Ping a DB-backed endpoint on a schedule so the
+# project stays awake even when no browser is open. get-status with a valid but
+# nonexistent uuid runs a clean SELECT (returns 404) which counts as activity.
+#
+# Note: GitHub disables scheduled workflows after 60 days with no repo activity;
+# commit occasionally or re-enable it. For a fully hands-off backstop, an external
+# uptime pinger (UptimeRobot, cron-job.org) hitting the same URL is more reliable.
+
+on:
+  schedule:
+    - cron: '0 6 */3 * *'   # every 3 days at 06:00 UTC
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping get-status (clean DB read keeps the project active)
+        run: |
+          curl -sS -o /dev/null -w "keepalive HTTP %{http_code}\n" \
+            "https://khckmoyvuzkjnuvyzjzx.functions.supabase.co/get-status?id=00000000-0000-0000-0000-000000000000"

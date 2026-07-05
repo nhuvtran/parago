@@ -80,6 +80,27 @@ You need: a [Supabase](https://supabase.com) project, the [Supabase CLI](https:/
 
 4. **Build + reload** the extension. In the extension's Options page, set "Ask someone to approve purchases", a spending limit (optional), and the approver's email.
 
+## Enabling Telegram approval (optional, free)
+
+Telegram delivers the approval as a message with one-tap **Approve / Reject** buttons, in real time, native on iPhone. Email stays as the fallback. Requires the Supabase backend above already deployed.
+
+1. **Create a bot**: in Telegram, message [@BotFather](https://t.me/BotFather) → `/newbot` → follow the prompts. Copy the bot **token**.
+
+2. **Secrets + deploy** (`TELEGRAM_WEBHOOK_SECRET` is any random string you choose):
+   ```bash
+   supabase secrets set TELEGRAM_BOT_TOKEN=<token> TELEGRAM_WEBHOOK_SECRET=<random-string>
+   supabase functions deploy telegram-webhook
+   ```
+
+3. **Register the webhook** so Telegram posts updates to your function (the secret must match the one above):
+   ```bash
+   curl "https://api.telegram.org/bot<token>/setWebhook?url=https://<your-ref>.functions.supabase.co/telegram-webhook&secret_token=<random-string>"
+   ```
+
+4. **Link the approver**: in the extension Options, set delivery method to **Telegram**, click **Get Telegram link**, and send that `t.me/...` link to the approver. They open it and tap **Start**. Options shows "Connected" when done.
+
+Approvals then arrive in the approver's Telegram with Approve/Reject buttons; **See full details** opens the same rich approval page. The bot token and webhook secret live only in `supabase secrets`, never in the extension.
+
 ## Development
 
 ```bash

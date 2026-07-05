@@ -29,6 +29,16 @@ export function findPlaceOrderControl(root = document) {
 
 export function clickPlaceOrder(control) {
   if (!control) return false;
+  // ponytail: dry-run hook for testing Stage 3 without spending money. Run
+  // localStorage.__paragoDryRun = '1' once in the amazon.com console; it survives
+  // navigation and is readable here, so the whole drive (nav, snapshot match,
+  // control detection) runs but the final click is logged instead of fired.
+  try {
+    if (typeof localStorage !== 'undefined' && localStorage.getItem('__paragoDryRun')) {
+      console.log('[parago dry-run] would place order via', control);
+      return true;
+    }
+  } catch (e) { /* storage blocked: fall through to a real click */ }
   control.click();
   return true;
 }

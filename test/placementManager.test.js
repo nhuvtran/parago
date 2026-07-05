@@ -87,6 +87,15 @@ describe('runPlacementCompletion', () => {
     expect((await store.get('id1')).status).toBe('placed');
   });
 
+  it('reports the placement to the backend (guardian "Order placed" ping) on finalize', async () => {
+    document.body.innerHTML = `<div id="widget-purchaseConfirmationStatus">ok</div>`;
+    const store = createPlacementStore(fakeStore({ id1: { snapshot: snap, status: 'placing', placingAt: 1, createdAt: 1 } }));
+    const placed = [];
+    const relay = { getRequest: async (id) => ({ id, status: 'approved' }), reportPlaced: async (id) => placed.push(id) };
+    await runPlacementCompletion({ relay, store, nav: { toCheckout() {} }, pageKind: () => 'checkout', claim: grant, now: () => 1000 });
+    expect(placed).toEqual(['id1']); // exactly the placed id, once
+  });
+
   it('fails a placing order that never confirms within the bounded wait', async () => {
     document.body.innerHTML = `<div>no confirmation here</div>`;
     const store = createPlacementStore(fakeStore({ id1: { snapshot: snap, status: 'placing', placingAt: 1, createdAt: 1 } }));
@@ -136,7 +145,7 @@ describe('runPlacementCompletion', () => {
       relay: relayWith({ id1: 'approved' }), store,
       nav: { toCheckout() {} }, pageKind: () => 'checkout', claim: deny, now: () => 1000,
     });
-    const btn = document.querySelector('.parago-pl-button');
+    const btn = document.querySelector('.parago-pl-toast-btn');
     expect(btn).not.toBeNull();
     btn.click();
     await Promise.resolve(); await Promise.resolve();

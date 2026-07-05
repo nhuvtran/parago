@@ -27,7 +27,7 @@
 #parago-guardian-overlay .parago-go-items li { margin-bottom: 4px; }
 #parago-guardian-overlay .parago-go-total { font-weight: 700; font-size: 1.2rem; }
 #parago-guardian-overlay .parago-go-status { font-weight: 700; min-height: 1.5rem; }
-#parago-guardian-overlay[data-status="approved"] .parago-go-status { color: #0a7d27; }
+#parago-guardian-overlay[data-status="approved"] .parago-go-status { color: #146eb4; }
 #parago-guardian-overlay[data-status="rejected"] .parago-go-status { color: #b00020; }
 #parago-guardian-overlay .parago-go-cancel {
   margin-top: 16px;
@@ -40,19 +40,20 @@
   cursor: pointer;
 }
 
-#parago-placement-overlay {
-  position: fixed; inset: 0; z-index: 2147483647;
-  display: flex; align-items: center; justify-content: center;
-  background: rgba(20, 30, 25, 0.55);
+/* Every placement state is a non-blocking corner toast (below Amazon's nav). */
+#parago-placement-toast {
+  /* Sits below Amazon's top nav (main bar + the "All / alexa for shopping" row),
+     in the clear area on the left, where it is easy to see and clears the header. */
+  position: fixed; top: 108px; left: 16px; z-index: 2147483647;
+  max-width: 22rem; background: #232f3e; color: #fff;
+  font-family: system-ui, sans-serif; padding: 12px 16px; border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0,0,0,.35);
 }
-#parago-placement-overlay .parago-pl-panel {
-  background: #fff; max-width: 30rem; margin: 1rem; padding: 1.5rem 1.75rem;
-  border-radius: 14px; box-shadow: 0 10px 40px rgba(0,0,0,.3);
-  font-family: system-ui, sans-serif; color: #1a2e22; text-align: center;
+#parago-placement-toast .parago-pl-toast-title { font-weight: 700; font-size: 1rem; }
+#parago-placement-toast .parago-pl-toast-body { font-size: .85rem; line-height: 1.4; opacity: .9; margin-top: 2px; }
+#parago-placement-toast .parago-pl-toast-btn {
+  margin-top: 10px; font: inherit; font-size: .85rem; font-weight: 600;
+  padding: 7px 12px; border: 0; border-radius: 8px;
+  background: #146eb4; color: #fff; cursor: pointer;
 }
-#parago-placement-overlay .parago-pl-title { font-size: 1.4rem; margin: 0 0 .5rem; }
-#parago-placement-overlay .parago-pl-body { font-size: 1.05rem; line-height: 1.5; margin: 0 0 1rem; }
-#parago-placement-overlay .parago-pl-button {
-  font-size: 1.1rem; padding: .7rem 1.4rem; border: 0; border-radius: 10px;
-  background: #1f8a4c; color: #fff; cursor: pointer;
-}
+#parago-placement-toast .parago-pl-toast-btn:hover { background: #0f5a94; }

@@ -19,7 +19,10 @@ supabase/.temp/
 docs/*
 !docs/approve.html
 !docs/.nojekyll
+!docs/fonts/
+!docs/fonts/stack-sans-notch.woff2
 
 # OS cruft
 .DS_Store
 Thumbs.db
+!docs/parago.png

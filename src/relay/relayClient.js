@@ -10,4 +10,6 @@
 //   onChange(cb)                    -> () => void            // cb(recordsMap) on change; returns unsubscribe
 //
 // status values:
-export const RELAY_STATUS = { PENDING: 'pending', APPROVED: 'approved', REJECTED: 'rejected' };
+// get-status returns 'expired' (HTTP 200) for a still-pending row past its 24h
+// expiry, so consumers must model it as a terminal status alongside rejected.
+export const RELAY_STATUS = { PENDING: 'pending', APPROVED: 'approved', REJECTED: 'rejected', EXPIRED: 'expired' };

@@ -2,7 +2,7 @@
 # Set project_id to your project ref (the SAME value used in src/config.js and
 # the manifest.json host permission). If you already ran `supabase init`, merge
 # the [functions.*] blocks below into your existing config.toml instead.
-project_id = "your-project-ref"
+project_id = "khckmoyvuzkjnuvyzjzx"
 
 # These Edge Functions are intentionally PUBLIC (uncredentialed): the extension
 # sends no auth header, and the guardian's approval link is a bare browser
@@ -16,4 +16,16 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.get-status]
+verify_jwt = false
+
+# Telegram posts bot updates here with no JWT; the extension calls the GET link
+# helpers with none either. Auth for Telegram updates is the secret token echoed
+# from setWebhook (checked in the function), not a Supabase JWT.
+[functions.telegram-webhook]
+verify_jwt = false
+
+# The extension POSTs here when an approved order actually completes (confirmation page),
+# so the guardian gets an "Order placed" ping. Public, idempotent, notifies only the
+# request's already-configured chat.
+[functions.order-placed]
 verify_jwt = false

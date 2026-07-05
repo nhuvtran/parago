@@ -3,7 +3,7 @@
   "name": "Parago",
   "version": "0.1.0",
   "description": "Shopping filter for Amazon. Hides or flags low-quality and sponsored search results.",
-  "permissions": ["storage"],
+  "permissions": ["storage", "alarms"],
   "host_permissions": ["*://*.amazon.com/*", "https://*.functions.supabase.co/*"],
   "background": { "service_worker": "dist/background.js" },
   "content_scripts": [
@@ -29,11 +29,22 @@
       "js": ["dist/devPanel.js"],
       "css": ["src/content/overlay.css", "src/content/devPanel.css"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": ["*://*.amazon.com/dp/*", "*://*.amazon.com/gp/product/*"],
+      "js": ["dist/productDetail.js"],
+      "run_at": "document_idle"
     }
   ],
   "options_page": "src/ui/options.html",
+  "icons": {
+    "16": "src/ui/parago.png",
+    "48": "src/ui/parago.png",
+    "128": "src/ui/parago.png"
+  },
   "action": {
     "default_popup": "src/ui/popup.html",
-    "default_title": "Parago"
+    "default_title": "Parago",
+    "default_icon": "src/ui/parago.png"
   }
 }

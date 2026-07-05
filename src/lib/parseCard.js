@@ -73,13 +73,26 @@ export function parsePrime(card) {
   return false;
 }
 
+// The card's current price. `.a-price .a-offscreen` is Amazon's canonical, stable
+// price node (the full "$21.15" string for screen readers); fall back to the price
+// color attribute. Returns a positive number, or null when no price is shown.
+export function parsePrice(card) {
+  const el = card.querySelector('.a-price .a-offscreen, [data-a-color="price"] .a-offscreen');
+  if (el) {
+    const v = parseFloat((el.textContent || '').replace(/[^0-9.]/g, ''));
+    if (Number.isFinite(v) && v > 0) return v;
+  }
+  return null;
+}
+
 export function parseCard(card) {
-  if (!card) return { asin: null, stars: null, ratingsCount: null, sponsored: false, prime: false };
+  if (!card) return { asin: null, stars: null, ratingsCount: null, sponsored: false, prime: false, price: null };
   return {
     asin: card.getAttribute('data-asin') || null,
     stars: parseStars(card),
     ratingsCount: parseRatingsCount(card),
     sponsored: parseSponsored(card),
     prime: parsePrime(card),
+    price: parsePrice(card),
   };
 }

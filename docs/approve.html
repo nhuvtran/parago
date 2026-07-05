@@ -3,144 +3,711 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- Send no referrer, so Amazon's image CDN doesn't hotlink-block the product photos
+     when this page is opened off-Amazon (esp. mobile browsers, which send a referrer
+     where desktop may not). -->
+<meta name="referrer" content="no-referrer">
 <title>Parago — Approve purchase</title>
 <style>
-  body{font-family:system-ui,sans-serif;max-width:34rem;margin:3rem auto;padding:0 1rem;color:#222}
-  button{font-size:1.1rem;padding:.7rem 1.4rem;margin:.4rem .4rem 0 0;border-radius:8px;border:0;cursor:pointer}
+  @font-face{
+    font-family:"Stack Sans Notch";
+    src:url("fonts/stack-sans-notch.woff2") format("woff2");
+    font-weight:100 900;font-style:normal;font-display:swap;
+  }
+  /* Amazon-themed palette: light grey canvas, near-black ink, teal links, orange
+     accent, Amazon navy. Approve/Reject are green/red. */
+  :root{
+    --bg:#eaeded;--surface:#fff;--ink:#0f1111;--ink-soft:#565959;--line:#d5d9d9;
+    --accent:#007185;--accent-strong:#005e6a;--accent-tint:#e6f2f3;
+    --navy:#232f3e;--orange:#ff9900;--green:#067d62;--red:#b12704;--danger:#b12704;
+    --radius:12px;--radius-sm:9px;
+    --shadow:0 1px 2px rgba(15,17,17,.08),0 8px 24px rgba(15,17,17,.08);
+    /* Clean system stack for NUMBERS — the display font renders digits poorly. */
+    --font-num:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  /* Three dark-ish palettes: soft dark (auto/Dark) and AMOLED pure-black (opt-in, best
+     on OLED phones). "auto" (no data-theme attribute) follows the device; data-theme
+     forces a choice. data-theme="light" matches nothing here, so the base light wins. */
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme]){--bg:#131a21;--surface:#1b2530;--ink:#f2f4f5;--ink-soft:#a7b0b8;--line:#37424e;
+      --accent-tint:#12303a;--accent:#43b6c9;--accent-strong:#63c6d7;--navy:#0f1720;}
+  }
+  :root[data-theme="dark"]{--bg:#131a21;--surface:#1b2530;--ink:#f2f4f5;--ink-soft:#a7b0b8;--line:#37424e;
+    --accent-tint:#12303a;--accent:#43b6c9;--accent-strong:#63c6d7;--navy:#0f1720;}
+  :root[data-theme="amoled"]{--bg:#000;--surface:#0d1116;--ink:#f2f4f5;--ink-soft:#98a2ab;--line:#23282e;
+    --accent-tint:#0e2228;--accent:#43b6c9;--accent-strong:#63c6d7;--navy:#0b0f13;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;
+    overflow-x:hidden;} /* a long unbreakable string must never widen the page and shift centered content */
+  .wrap{max-width:40rem;margin:0 auto;padding:22px 16px 56px;width:100%}
+  .brand{display:flex;align-items:center;justify-content:center;gap:9px;margin:4px 0 16px;text-align:center;width:100%}
+  .brand img{width:30px;height:30px;object-fit:contain;flex:0 0 auto}
+  .it-title,.dv-when,.bd-label{overflow-wrap:anywhere;word-break:break-word}
+  .brand .mark{font-family:"Stack Sans Notch",system-ui,sans-serif;font-weight:800;
+    font-size:1.35rem;color:var(--ink);letter-spacing:.2px} /* --ink flips light/dark, so it's never hidden */
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);padding:24px}
+  h1{font-family:"Stack Sans Notch",system-ui,sans-serif;font-size:1.5rem;margin:0 0 2px;line-height:1.2}
+  .when{color:var(--ink-soft);font-size:.9rem;margin:0 0 16px}
+  /* Amazon order-summary look: plain rows on white, amounts right-aligned, bold black
+     Order total with a thin rule above it. No tinted box, no blue/navy. */
+  .total{display:flex;align-items:baseline;gap:8px;padding:10px 0;margin:0;border-top:1px solid var(--line)}
+  .total .lbl{color:var(--ink);font-size:1rem;font-weight:700}
+  .total .amt{font-family:var(--font-num);font-variant-numeric:tabular-nums;font-weight:700;font-size:1.3rem;margin-left:auto;color:var(--ink)}
+  .count{color:var(--ink-soft);font-size:.85rem;margin:10px 2px 2px}
+  .breakdown{padding:2px 0;margin:0}
+  .bd-row{display:flex;justify-content:space-between;gap:16px;font-size:.92rem;padding:3px 0;color:var(--ink)}
+  .bd-label{color:var(--ink-soft)}
+  .bd-amt{font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--ink);text-align:right;min-width:5.5rem}
+  .bd-total{margin-top:6px;padding-top:9px;border-top:1px solid var(--line)}
+  .bd-total .bd-label{color:var(--ink);font-weight:700;font-size:1rem}
+  .bd-total .bd-amt{font-family:var(--font-num);font-variant-numeric:tabular-nums;font-weight:700;font-size:1.25rem;color:var(--ink)}
+  .approving{color:var(--ink-soft);font-size:.86rem;margin:8px 2px 2px}
+  .approving-amt{color:var(--ink);font-weight:700}
+  ul.items{list-style:none;padding:0;margin:8px 0 4px}
+  ul.items > li{display:flex;gap:14px;padding:16px 0;border-top:1px solid var(--line)}
+  ul.items > li:first-child{border-top:0}
+  .thumb{width:110px;height:110px;object-fit:contain;flex:0 0 auto;border-radius:var(--radius-sm);
+    background:#fff;border:1px solid var(--line);padding:4px}
+  @media (max-width:420px){.thumb{width:84px;height:84px}}
+  .it-body{min-width:0;flex:1 1 auto}
+  .it-title-row{display:flex;gap:8px;align-items:flex-start}
+  .sel-check{flex:0 0 auto;width:18px;height:18px;margin-top:2px;accent-color:var(--accent);cursor:pointer}
+  .qty-input{width:52px;padding:3px 6px;border:1.5px solid var(--line);border-radius:6px;
+    background:var(--surface);color:var(--ink);font:inherit;font-size:.86rem;text-align:center}
+  .qty-x{color:var(--ink-soft)}
+  /* Editing the cart is opt-in: checkboxes + editable quantities appear only after the
+     guardian taps "Edit items", so they never change the order by accident. */
+  .items-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:14px 2px 2px}
+  .items-head .lbl{font-size:.85rem;color:var(--ink-soft);font-weight:700}
+  .edit-toggle{flex:0 0 auto;width:auto;font:inherit;font-size:.82rem;font-weight:700;color:var(--accent);
+    background:none;border:1.5px solid var(--accent);border-radius:999px;padding:5px 14px;cursor:pointer}
+  .edit-toggle:hover{background:var(--accent);color:#fff}
+  .items:not(.editing) .sel-check{display:none}
+  .items:not(.editing) .qty-input{border-color:transparent;background:transparent;padding-left:0;
+    padding-right:0;width:auto;min-width:1.4rem;text-align:left}
+  .remove-item{font:inherit;font-size:.78rem;font-weight:700;color:var(--red);background:none;
+    border:0;cursor:pointer;padding:2px 6px;text-decoration:underline}
+  .remove-item:hover{filter:brightness(.85)}
+  .items:not(.editing) .remove-item{display:none}   /* only while editing */
+  li.excluded .remove-item{display:none}            /* already removed; the checkbox adds it back */
+  /* Tap a photo to view it large. */
+  .thumb{cursor:zoom-in}
+  .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;
+    justify-content:center;z-index:100;padding:20px;cursor:zoom-out}
+  .lightbox img{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px}
+  /* Media strip: product videos + the extra gallery photos, scrolled horizontally. */
+  .media{display:flex;gap:8px;overflow-x:auto;margin-top:10px;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+  .media-img{width:92px;height:92px;object-fit:contain;flex:0 0 auto;border-radius:8px;background:#fff;border:1px solid var(--line);padding:3px;cursor:zoom-in}
+  .media-vid{width:150px;height:92px;flex:0 0 auto;border-radius:8px;background:#000;border:1px solid var(--line)}
+  @media (max-width:420px){.media-img{width:74px;height:74px}.media-vid{width:130px;height:78px}}
+  li.excluded{opacity:.42}
+  li.excluded .it-title{text-decoration:line-through}
+  .num{flex:0 0 auto;width:20px;height:20px;border-radius:50%;background:var(--accent-tint);
+    color:var(--accent-strong);font-size:.7rem;font-weight:700;display:inline-flex;align-items:center;justify-content:center;margin-top:1px}
+  .it-title{flex:1 1 auto;min-width:0;font-weight:600;line-height:1.32}
+  .it-title a{color:var(--ink);text-decoration:none}
+  .it-title a:hover{color:var(--accent);text-decoration:underline}
+  .it-facts{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;margin-top:6px;font-size:.86rem;color:var(--ink-soft)}
+  .it-facts .price{color:var(--red);font-weight:700;font-family:var(--font-num);font-variant-numeric:tabular-nums}
+  /* Star rating as a clipped overlay: grey stars underneath, orange stars on top clipped
+     to (rating/5)%, so a 4.6 shows a real partial star, not a literal "1/2". */
+  .it-facts .stars{position:relative;display:inline-block;color:var(--line);letter-spacing:1px;line-height:1;white-space:nowrap}
+  .it-facts .stars .fill{position:absolute;left:0;top:0;overflow:hidden;color:var(--orange);white-space:nowrap}
+  .it-facts .rating-num{color:var(--ink-soft)}
+  .it-facts,.qty-input,.approving-amt,.deadline{font-family:var(--font-num);font-variant-numeric:tabular-nums}
+  .it-facts a{color:var(--accent);text-decoration:none}
+  .it-facts a:hover{text-decoration:underline}
+  .it-asin{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.74rem}
+  .gift-badge{background:var(--accent-tint);color:var(--accent-strong);font-weight:700;padding:1px 9px;border-radius:999px;font-size:.76rem}
+  .it-delivery{margin-top:7px;font-size:.84rem;color:var(--ink)}
+  .dv-when{font-weight:600}
+  .dv-cost{margin-left:8px;font-weight:700;color:var(--red)}
+  .dv-cost.free{color:var(--green)}
+  .deadline{margin-top:3px;font-size:.8rem;font-weight:700;color:var(--accent-strong)}
+  .deadline.expired{color:var(--danger)}
+  .applink{display:inline-block;margin-top:10px;font-size:.82rem;font-weight:700;text-decoration:none;
+    color:var(--accent);padding:6px 12px;border:1.5px solid var(--accent);border-radius:999px}
+  .applink:hover{background:var(--accent);color:#fff}
+  .more{margin-top:10px}
+  .more summary{cursor:pointer;font-size:.83rem;font-weight:600;color:var(--ink-soft);
+    list-style:none;display:inline-flex;align-items:center;gap:5px;user-select:none}
+  .more summary::before{content:"▸";font-size:.7rem;transition:transform .15s}
+  .more[open] summary::before{transform:rotate(90deg)}
+  .more summary::-webkit-details-marker{display:none}
+  .dl{display:flex;gap:8px;margin:8px 0 0;font-size:.84rem;line-height:1.4}
+  .dl-k{flex:0 0 84px;color:var(--ink-soft)}
+  .dl-v{flex:1 1 auto}
+  ul.bullets{margin:10px 0 2px;padding-left:18px;font-size:.84rem;color:var(--ink);line-height:1.45}
+  ul.bullets li{margin:3px 0}
+  .actions{display:flex;gap:10px;margin-top:22px}
+  button{font:inherit;font-weight:700;font-size:1rem;padding:13px 18px;border-radius:var(--radius-sm);
+    border:1.5px solid transparent;cursor:pointer;flex:1 1 0;transition:background .12s,border-color .12s}
+  .ok{background:var(--green);color:#fff}
+  .ok:hover{filter:brightness(.92)}
+  .no{background:var(--red);color:#fff}
+  .no:hover{filter:brightness(.92)}
   button[disabled]{opacity:.5;cursor:default}
-  .ok{background:#1f8a4c;color:#fff}.no{background:#b23b3b;color:#fff}
-  ul.items{list-style:none;padding:0;margin:0}
-  ul.items li{display:flex;gap:.75rem;align-items:flex-start;padding:.6rem 0;border-top:1px solid #eee}
-  ul.items li:first-child{border-top:0}
-  .thumb{width:64px;height:64px;object-fit:contain;flex:0 0 auto;border-radius:6px;background:#f6f6f6}
-  .it-body{min-width:0;flex:1 1 auto}.it-title{font-weight:600}.it-title a{color:inherit}
-  .it-meta{color:#888;font-size:.85rem;margin-top:.15rem}
-  .muted{color:#888}.err{color:#b23b3b}
+  .note{color:var(--danger);font-size:.9rem;margin:12px 2px 0;min-height:1px}
+  .mod-note{color:var(--accent-strong);font-size:.82rem;font-weight:600;margin:8px 2px 0;min-height:1px}
+  .ok.is-modified{box-shadow:inset 0 0 0 2px var(--orange)} /* orange ring flags an edited cart */
+  .center{text-align:center;padding:26px 0;color:var(--ink-soft)}
+  .spinner{width:30px;height:30px;margin:0 auto 12px;border:3px solid var(--line);
+    border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .done-badge{font-family:"Stack Sans Notch",system-ui,sans-serif;font-size:1.7rem;font-weight:800;background:none}
+  .done-badge.is-approved{color:var(--green)}
+  .done-badge.is-rejected{color:var(--red)}
+  .shipinfo{display:flex;flex-wrap:wrap;gap:6px 18px;margin:12px 2px 2px;font-size:.85rem;color:var(--ink-soft)}
+  .shipinfo b{color:var(--ink);font-weight:600}
+  .retry{margin-top:10px;font:inherit;color:var(--accent);background:none;border:0;cursor:pointer;text-decoration:underline;padding:0}
+  /* Theme toggle, top-right. Tap Light or Dark; tapping Dark again deepens to AMOLED. */
+  .theme-seg{position:fixed;top:12px;right:12px;z-index:50;display:inline-flex;background:var(--surface);
+    border:1px solid var(--line);border-radius:999px;padding:3px;gap:2px;box-shadow:var(--shadow)}
+  .theme-seg button{flex:0 0 auto;width:auto;font:inherit;font-size:.74rem;font-weight:700;color:var(--ink-soft);
+    background:none;border:0;border-radius:999px;padding:5px 12px;cursor:pointer;transition:background .2s ease,color .2s ease}
+  .theme-seg button.active{background:var(--accent);color:#fff}
 </style>
 </head>
 <body>
-<div id="app" class="muted">Loading…</div>
+<div class="theme-seg" id="themeSeg" role="group" aria-label="Theme">
+  <button type="button" data-theme-choice="light">Light</button>
+  <button type="button" data-theme-choice="dark">Dark</button>
+</div>
+<div class="wrap">
+  <div class="brand"><img src="parago.png" alt="" /><span class="mark">Parago</span></div>
+  <div class="card" id="app">
+    <div class="center"><div class="spinner"></div>Loading this request…</div>
+  </div>
+</div>
 <script>
   // The decision Edge Function (JSON API). Public, non-secret — same base the
   // extension uses. GET ?token returns the purchase; POST {token,verdict} records it.
-  var FN_BASE = 'https://nerwudjzrexovqccxfuk.functions.supabase.co';
+  var FN_BASE = 'https://khckmoyvuzkjnuvyzjzx.functions.supabase.co';
   var DECISION_URL = FN_BASE + '/decision';
   var app = document.getElementById('app');
   var token = new URLSearchParams(location.search).get('token') || '';
 
-  function clear(el) { while (el.firstChild) el.removeChild(el.firstChild); }
-  function elt(tag, opts) {
+  function clear(el){ while(el.firstChild) el.removeChild(el.firstChild); }
+  function elt(tag, opts){
     var e = document.createElement(tag); opts = opts || {};
     if (opts.text != null) e.textContent = opts.text;
     if (opts.cls) e.className = opts.cls;
+    if (opts.href) { e.href = opts.href; e.target = '_blank'; e.rel = 'noopener'; }
     return e;
   }
-  function httpUrl(u) { return (typeof u === 'string' && /^https?:\/\//i.test(u)) ? u : null; }
-  function money(n) { return (typeof n === 'number' && isFinite(n)) ? n.toFixed(2) : '—'; }
-
-  // Mirror of the server/email star rendering. rating 0..5; reviewCount optional.
-  function stars(rating, reviewCount) {
-    var cr = Math.max(0, Math.min(5, rating));
-    var r2 = Math.round(cr * 2) / 2, full = Math.floor(r2), half = (r2 - full) === 0.5;
-    var empty = 5 - full - (half ? 1 : 0);
-    var s = '★'.repeat(full) + (half ? '½' : '') + '☆'.repeat(empty);
-    var count = (typeof reviewCount === 'number' && isFinite(reviewCount))
-      ? ' · ' + Math.round(reviewCount).toLocaleString() + ' ratings' : '';
-    return s + ' ' + cr.toFixed(1) + count;
+  function httpUrl(u){ return (typeof u === 'string' && /^https?:\/\//i.test(u)) ? u : null; }
+  function money(n){ return (typeof n === 'number' && isFinite(n)) ? n.toFixed(2) : '—'; }
+  // Precise date + time (the guardian may get several orders the same day, so the
+  // minute matters). Uses the request's created time when available, else now, and the
+  // shopper's chosen time zone (APP_TZ) so it matches the Telegram summary; else the
+  // viewer's local zone.
+  var APP_TZ = null;
+  function whenFull(iso){
+    var d = iso ? new Date(iso) : new Date();
+    if (isNaN(d.getTime())) d = new Date();
+    var opts = {year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'};
+    if (APP_TZ){ try { return d.toLocaleString('en-US', Object.assign({timeZone:APP_TZ,timeZoneName:'short'}, opts)); } catch(e){} }
+    return d.toLocaleString('en-US', opts);
+  }
+  function amazonApp(asin){ return asin ? 'com.amazon.mobile.shopping.web://www.amazon.com/dp/' + encodeURIComponent(asin) : null; }
+  // Whether to show the per-item "Open in Amazon app" button (a shopper setting, default on).
+  var SHOW_APP_BUTTON = true;
+  // Ask Amazon's CDN for a larger render of the same photo (the size is encoded in the
+  // filename, e.g. ._SL500_.) and show it full-screen; tap anywhere to close.
+  function biggerImage(u){ return String(u).replace(/\._[^./]*_\.(jpg|jpeg|png|webp)(\?.*)?$/i, '._SL1200_.$1'); }
+  function openLightbox(u){
+    var ov = elt('div', { cls:'lightbox' });
+    var im = elt('img'); im.alt = ''; im.referrerPolicy = 'no-referrer'; im.src = u;
+    ov.appendChild(im);
+    ov.addEventListener('click', function(){ ov.remove(); });
+    document.body.appendChild(ov);
   }
 
-  function message(title, sub) {
-    clear(app); app.className = '';
-    app.appendChild(elt('h1', { text: title }));
-    if (sub) app.appendChild(elt('p', { cls: 'muted', text: sub }));
+  // Only real product photos (Amazon serves them under /images/I/); reject inline
+  // placeholders and loading spinners so the guardian never sees an infinite wheel.
+  function productImage(u){
+    if (!httpUrl(u) || /^data:/i.test(u)) return null;
+    return /(?:media-amazon|images-amazon|ssl-images-amazon)\.com\/images\/I\//i.test(u) ? u : null;
+  }
+  // Amazon media on the /images/S/ path: video posters and the .mp4 renditions live there.
+  function amazonMedia(u){
+    if (!httpUrl(u) || /^data:/i.test(u)) return null;
+    return /(?:media-amazon|images-amazon|ssl-images-amazon)\.com\/images\/[IS]\//i.test(u) ? u : null;
+  }
+  function productVideo(u){ return (amazonMedia(u) && /\.mp4(?:$|\?)/i.test(u)) ? u : null; }
+  // A horizontal media strip for one item: product videos (inline players) then the extra
+  // gallery photos (tap to enlarge via the lightbox). Renders nothing when there is none.
+  function renderMedia(it, body){
+    var d = it && it.details;
+    var imgs = (d && Array.isArray(d.gallery)) ? d.gallery.map(productImage).filter(Boolean) : [];
+    var vids = (d && Array.isArray(d.videos)) ? d.videos.filter(function(v){ return v && productVideo(v.url); }) : [];
+    if (!imgs.length && !vids.length) return;
+    var strip = elt('div', { cls:'media' });
+    vids.forEach(function(v){
+      var vid = document.createElement('video');
+      vid.className = 'media-vid'; vid.controls = true; vid.preload = 'none'; vid.playsInline = true;
+      vid.referrerPolicy = 'no-referrer';
+      var poster = amazonMedia(v.poster); if (poster) vid.poster = poster;
+      vid.src = productVideo(v.url);
+      vid.onerror = function(){ vid.remove(); };
+      strip.appendChild(vid);
+    });
+    imgs.forEach(function(u){
+      var im = elt('img', { cls:'media-img' }); im.alt = ''; im.loading = 'lazy'; im.referrerPolicy = 'no-referrer'; im.src = u;
+      im.onerror = function(){ im.remove(); };
+      im.addEventListener('click', function(){ openLightbox(biggerImage(u)); });
+      strip.appendChild(im);
+    });
+    body.appendChild(strip);
+  }
+  // Defensive title clean (older requests may carry Amazon's "Opens in a new tab" a11y text).
+  function cleanTitle(t){
+    return String(t == null ? 'Item' : t).replace(/\(?\s*opens?\s+in\s+(?:a\s+)?new\s+(?:tab|window)\s*\)?\.?/ig,' ').replace(/\s+/g,' ').trim() || 'Item';
+  }
+  // Defensive delivery cleanup for values captured before the parser fix: split words
+  // glued at a lowercase→uppercase boundary ("OvernightFREE" -> "Overnight FREE") and
+  // start at the real message, dropping a leading badge word ("Overnight FREE delivery
+  // ..." -> "FREE delivery ...").
+  function cleanDelivery(s){
+    s = String(s == null ? '' : s).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/\s+/g, ' ').trim();
+    var m = s.match(/(?:FREE\s+)?delivery\b.*/i) || s.match(/(?:Arrives|Get it)\b.*/i);
+    s = (m ? m[0] : s).replace(/\s*(?:on \$[\d.,]+ of qualifying items|FREE Returns|Order within).*$/i, '').trim();
+    return s;
+  }
+
+  // Split the delivery line into the WHEN (date/window) and its cost, so we can lead
+  // with the time and then say Free or the price. "FREE delivery Overnight 4 AM - 8 AM"
+  // -> { when:'Overnight 4 AM - 8 AM', cost:'Free' }; a paid one keeps its "$X".
+  function formatDelivery(s){
+    s = cleanDelivery(s);
+    if (!s) return null;
+    var free = /\bFREE\b/i.test(s);
+    var costM = s.match(/\$[\d.,]+/);
+    var when = s.replace(/\bFREE\b/ig,'').replace(/\bdelivery\b/ig,'').replace(/\$[\d.,]+/g,'').replace(/\s{2,}/g,' ').replace(/^[\s.,-]+|[\s.,-]+$/g,'').trim();
+    return { when: when, cost: free ? 'Free' : (costM ? costM[0] : '') };
+  }
+
+  function detailLine(label, value){
+    var row = elt('div', { cls:'dl' });
+    row.appendChild(elt('span', { cls:'dl-k', text:label }));
+    row.appendChild(elt('span', { cls:'dl-v', text:String(value) }));
+    return row;
+  }
+
+  // Rating 0..5 as five stars with a precise partial fill (overlay clipped to a width),
+  // so 4.6 renders a real fractional star instead of the literal "1/2" glyph.
+  function buildStars(rating){
+    var r = Math.max(0, Math.min(5, rating));
+    var wrap = elt('span', { cls:'stars' });
+    wrap.appendChild(document.createTextNode('★★★★★'));       // grey backing (empty stars)
+    var fill = elt('span', { cls:'fill', text:'★★★★★' });     // orange, clipped to the rating
+    fill.style.width = (r / 5 * 100) + '%';
+    wrap.appendChild(fill);
+    wrap.setAttribute('aria-label', r.toFixed(1) + ' out of 5 stars');
+    return wrap;
   }
 
   var REASONS = {
-    not_found: 'This link is not valid.',
-    invalid: 'This link is not valid.',
-    used: 'This request was already decided.',
-    decided: 'This request was already decided.',
-    expired: 'This link has expired.',
+    not_found:'This link is not valid.', invalid:'This link is not valid.',
+    used:'This request was already decided.', decided:'This request was already decided.',
+    expired:'This link has expired.',
   };
 
-  // Build one product row with DOM nodes (no innerHTML) so a hostile title/url can't inject markup.
-  function itemRow(it) {
+  // One product row built from DOM nodes (no innerHTML for data) so a hostile
+  // title/url can't inject markup.
+  function itemRow(it, i){
     var li = elt('li');
-    var img = httpUrl(it && it.image);
-    if (img) { var im = elt('img', { cls: 'thumb' }); im.src = img; im.alt = ''; li.appendChild(im); }
-    var bodyEl = elt('div', { cls: 'it-body' });
 
-    var titleEl = elt('div', { cls: 'it-title' });
-    var titleText = (it && it.title) ? String(it.title) : 'Item';
-    var url = httpUrl(it && it.url);
-    if (url) {
-      var a = elt('a', { text: titleText }); a.href = url; a.target = '_blank'; a.rel = 'noopener';
-      titleEl.appendChild(a);
-    } else {
-      titleEl.appendChild(document.createTextNode(titleText));
+    var img = productImage(it && it.image);
+    if (img){
+      var im = elt('img', { cls:'thumb' }); im.alt = '';
+      im.referrerPolicy = 'no-referrer';         // set before src: don't let Amazon hotlink-block it
+      im.src = img;
+      im.onerror = function(){ im.remove(); };   // broken URL → drop it, never a spinner
+      im.addEventListener('click', function(){ openLightbox(biggerImage(img)); });
+      li.appendChild(im);
     }
-    if (typeof it.price === 'number') titleEl.appendChild(document.createTextNode(' · $' + money(it.price)));
-    if (isFinite(Number(it.qty)) && Number(it.qty) > 1) titleEl.appendChild(document.createTextNode(' × ' + Math.round(Number(it.qty))));
-    bodyEl.appendChild(titleEl);
 
-    if (typeof it.rating === 'number' && isFinite(it.rating)) {
-      bodyEl.appendChild(elt('div', { cls: 'it-meta', text: stars(it.rating, it.reviewCount) }));
+    var body = elt('div', { cls:'it-body' });
+    // A checkbox to keep/drop the item, then the number and title. The guardian edits the
+    // cart here: uncheck to exclude, or change the quantity below.
+    var titleRow = elt('div', { cls:'it-title-row' });
+    var check = elt('input'); check.type = 'checkbox'; check.className = 'sel-check';
+    check.checked = true; check.setAttribute('aria-label', 'Include this item');
+    titleRow.appendChild(check);
+    titleRow.appendChild(elt('span', { cls:'num', text:String(i + 1) }));
+    // Title opens the Amazon APP (already signed in on a phone) — no browser login wall.
+    // Gated on the SAME setting as the button: when off, the title is plain text (no app link).
+    var titleEl = elt('span', { cls:'it-title' });
+    var appHref = SHOW_APP_BUTTON ? amazonApp(it && it.asin) : null;
+    if (appHref){ var a = elt('a', { text: cleanTitle(it && it.title) }); a.href = appHref; titleEl.appendChild(a); }
+    else titleEl.appendChild(document.createTextNode(cleanTitle(it && it.title)));
+    titleRow.appendChild(titleEl);
+    body.appendChild(titleRow);
+
+    var origQty = (isFinite(Number(it.qty)) && Number(it.qty) > 0) ? Math.round(Number(it.qty)) : 1;
+    var qtyInput = null;
+    var facts = elt('div', { cls:'it-facts' });
+    if (typeof it.price === 'number'){
+      facts.appendChild(elt('span', { cls:'price', text:'$' + money(it.price) }));
+      facts.appendChild(elt('span', { cls:'qty-x', text:'×' }));
+      qtyInput = elt('input'); qtyInput.type = 'number'; qtyInput.min = '0'; qtyInput.step = '1';
+      qtyInput.className = 'qty-input'; qtyInput.value = String(origQty);
+      qtyInput.setAttribute('aria-label', 'Quantity');
+      facts.appendChild(qtyInput);
     }
-    li.appendChild(bodyEl);
+    // In edit mode, a Remove button next to the quantity drops the item (clearer than
+    // typing 0). Hidden unless editing, and once removed (the checkbox re-adds it).
+    var rmBtn = elt('button', { cls:'remove-item', text:'Remove' });
+    rmBtn.type = 'button';
+    rmBtn.addEventListener('click', function(){
+      check.checked = false; li.className = 'excluded';
+      if (qtyInput) qtyInput.disabled = true;
+      recomputeTotal();
+    });
+    facts.appendChild(rmBtn);
+
+    // Register for the live Approved total + the decision payload, and wire the controls.
+    var sel = { asin: it && it.asin, price: (typeof it.price === 'number') ? it.price : null, origQty: origQty, checkbox: check, qtyInput: qtyInput };
+    GUARDIAN_SELECTION.push(sel);
+    check.addEventListener('change', function(){
+      li.className = check.checked ? '' : 'excluded';
+      if (qtyInput) qtyInput.disabled = !check.checked;
+      recomputeTotal();
+    });
+    if (qtyInput) qtyInput.addEventListener('input', recomputeTotal);
+    if (typeof it.rating === 'number' && isFinite(it.rating)){
+      facts.appendChild(buildStars(it.rating));
+      facts.appendChild(elt('span', { cls:'rating-num', text: Math.max(0,Math.min(5,it.rating)).toFixed(1) }));
+      if (typeof it.reviewCount === 'number' && isFinite(it.reviewCount)){
+        facts.appendChild(elt('span', { text: Math.round(it.reviewCount).toLocaleString() + ' ratings' }));
+      }
+    }
+    if (it && it.asin) facts.appendChild(elt('span', { cls:'it-asin', text:'ASIN ' + it.asin }));
+    if (it && it.gift) facts.appendChild(elt('span', { cls:'gift-badge', text:'Gift' }));
+    if (facts.childNodes.length) body.appendChild(facts);
+
+    // Delivery window captured from the cart, plus a live countdown to the order
+    // cutoff so the guardian knows if the slot is still available (see tickDeadlines).
+    if (it && typeof it.delivery === 'string' && it.delivery){
+      var dv = formatDelivery(it.delivery);
+      if (dv && dv.when){
+        var drow = elt('div', { cls:'it-delivery' });
+        drow.appendChild(elt('span', { cls:'dv-when', text: dv.when }));
+        if (dv.cost){
+          var free = dv.cost === 'Free';
+          drow.appendChild(elt('span', { cls: 'dv-cost' + (free ? ' free' : ''), text: dv.cost }));
+          drow.title = free ? 'Free delivery' : 'Delivery costs ' + dv.cost;
+        }
+        body.appendChild(drow);
+      }
+    }
+    if (it && typeof it.deliveryExpiry === 'number' && isFinite(it.deliveryExpiry)){
+      var dl = elt('div', { cls:'deadline' });
+      dl.setAttribute('data-expiry', String(it.deliveryExpiry));
+      body.appendChild(dl);
+    }
+
+    // The richer product detail captured from the product page, shown inline so the
+    // guardian sees it here (tapping the title opens the Amazon app for the rest).
+    var d = it && it.details;
+    if (d && (d.brand || d.dateFirstAvailable || d.rank || (d.bullets && d.bullets.length))){
+      var det = elt('details', { cls:'more' });
+      det.appendChild(elt('summary', { text:'Details' }));
+      if (d.brand) det.appendChild(detailLine('Brand', d.brand));
+      if (d.dateFirstAvailable) det.appendChild(detailLine('First listed', d.dateFirstAvailable));
+      if (d.rank) det.appendChild(detailLine('Rank', d.rank));
+      if (Array.isArray(d.bullets) && d.bullets.length){
+        var ul = elt('ul', { cls:'bullets' });
+        d.bullets.forEach(function(b){ ul.appendChild(elt('li', { text:String(b) })); });
+        det.appendChild(ul);
+      }
+      body.appendChild(det);
+    }
+
+    // Product photos + videos scraped from the Amazon page, shown inline.
+    renderMedia(it, body);
+
+    // Explicit "Open in Amazon app" button (the guardian may want to open/copy it on
+    // their phone). Same deep link the title uses; hidden if the shopper turned it off.
+    if (SHOW_APP_BUTTON && it && it.asin){
+      body.appendChild(elt('a', { cls:'applink', text:'Open in Amazon app', href: amazonApp(it.asin) }));
+    }
+
+    li.appendChild(body);
     return li;
   }
 
-  function renderApproval(data) {
-    clear(app); app.className = '';
-    app.appendChild(elt('h1', { text: 'Approve this purchase?' }));
-    if (data.guardianName) app.appendChild(elt('p', { text: 'Requested approval from ' + data.guardianName + '.' }));
+  // Live countdown to each item's order cutoff. Amazon's delivery promise ("Order
+  // within 3 hrs 20 mins") was resolved to an absolute expiry at capture time, so we
+  // compare it to now: still open → show the time left; passed → mark the slot expired.
+  function tickDeadlines(){
+    var now = Date.now();
+    var els = document.querySelectorAll('.deadline');
+    for (var i = 0; i < els.length; i++){
+      var el = els[i];
+      var exp = parseInt(el.getAttribute('data-expiry'), 10);
+      if (!isFinite(exp)){ el.textContent = ''; continue; }
+      var rem = exp - now;
+      if (rem <= 0){
+        el.textContent = 'This delivery slot has expired';
+        el.className = 'deadline expired';
+      } else {
+        var mins = Math.floor(rem / 60000), h = Math.floor(mins / 60), m = mins % 60;
+        el.textContent = 'Order within ' + (h > 0 ? h + 'h ' : '') + m + 'm to keep this delivery slot';
+        el.className = 'deadline';
+      }
+    }
+  }
+  setInterval(tickDeadlines, 1000);
 
-    var totalP = elt('p'); totalP.appendChild(elt('strong', { text: 'Total: $' + money(data.total) }));
-    app.appendChild(totalP);
+  // The guardian can uncheck items or change quantities — "the cart is good except
+  // these". Each item row registers here; recomputeTotal keeps the Approved total live.
+  var GUARDIAN_SELECTION = [];
+  var approveBtn = null; // set in renderApproval; relabeled live when the cart is edited
+  // Editing is opt-in (see .items-head). Off by default: quantities are read-only and the
+  // keep/drop checkboxes are hidden, so the guardian can't change the order by accident.
+  var EDIT_MODE = false;
+  function applyEditMode(ul){
+    if (EDIT_MODE) ul.classList.add('editing'); else ul.classList.remove('editing');
+    GUARDIAN_SELECTION.forEach(function(s){
+      if (s.qtyInput) s.qtyInput.disabled = !EDIT_MODE || (s.checkbox && !s.checkbox.checked);
+    });
+  }
+  function itemQty(s){
+    var q = s.qtyInput ? parseInt(s.qtyInput.value, 10) : s.origQty;
+    return (isFinite(q) && q > 0) ? Math.round(q) : 0;
+  }
+  function recomputeTotal(){
+    var sum = 0, count = 0;
+    for (var i = 0; i < GUARDIAN_SELECTION.length; i++){
+      var s = GUARDIAN_SELECTION[i];
+      var included = !s.checkbox || s.checkbox.checked;
+      var q = itemQty(s);
+      if (included && q > 0){
+        if (typeof s.price === 'number') sum += s.price * q;
+        count++;
+      }
+    }
+    var amt = document.getElementById('approvedAmt');
+    if (amt) amt.textContent = '$' + money(sum);
+    var cnt = document.getElementById('approvedCount');
+    if (cnt) cnt.textContent = count + (count === 1 ? ' item' : ' items');
+    // When the guardian has edited the cart, the Approve button says so (it's approving
+    // THEIR version, not the original), and a note under it spells that out.
+    var ed = wasEdited();
+    if (approveBtn){ approveBtn.textContent = ed ? 'Approve changes' : 'Approve'; approveBtn.classList.toggle('is-modified', ed); }
+    var mn = document.getElementById('modNote');
+    if (mn) mn.textContent = ed ? 'You edited the cart. This approves your changes, not the original order.' : '';
+  }
+  // The included items + chosen quantities, for the decision payload.
+  function guardianSelection(){
+    return GUARDIAN_SELECTION
+      .filter(function(s){ return (!s.checkbox || s.checkbox.checked) && itemQty(s) > 0; })
+      .map(function(s){ return { asin: s.asin || null, qty: itemQty(s) }; });
+  }
+  // Did the guardian change the cart (drop an item or change a quantity)?
+  function wasEdited(){
+    return GUARDIAN_SELECTION.some(function(s){
+      return (s.checkbox && !s.checkbox.checked) || itemQty(s) !== s.origQty;
+    });
+  }
 
-    var ul = elt('ul', { cls: 'items' });
-    (Array.isArray(data.items) ? data.items : []).forEach(function (it) { ul.appendChild(itemRow(it || {})); });
+  function centered(nodes){
+    clear(app);
+    var d = elt('div', { cls:'center' });
+    nodes.forEach(function(n){ d.appendChild(n); });
+    app.appendChild(d);
+  }
+  function message(title, sub){
+    centered([elt('h1', { text:title }), sub ? elt('p', { cls:'when', text:sub }) : document.createTextNode('')]);
+  }
+
+  function renderApproval(data){
+    clear(app);
+    GUARDIAN_SELECTION = [];
+    APP_TZ = (typeof data.timezone === 'string' && data.timezone) ? data.timezone : null;
+    // Default the page theme to the shopper's extension theme, unless the guardian has
+    // already picked one here (their explicit choice wins and persists).
+    if (!storedTheme() && typeof data.theme === 'string' && THEME_VALS.indexOf(data.theme) >= 0) setTheme(data.theme, false);
+    app.appendChild(elt('p', { cls:'when', text: whenFull(data.createdAt) }));
+
+    var items = Array.isArray(data.items) ? data.items : [];
+    SHOW_APP_BUTTON = data.appButton !== false;
+
+    // Ship-to + payment (partial only) captured at checkout — context up top, before the
+    // items, so the guardian sees where it's going and which card (no sensitive detail).
+    var shipWho = [data.shipName, data.shipAddress].filter(Boolean).join(' · ') || data.shipTo;
+    if (shipWho || data.payment){
+      var ship = elt('div', { cls:'shipinfo' });
+      if (shipWho){ var s1 = elt('span'); s1.appendChild(document.createTextNode('Ship to ')); s1.appendChild(elt('b', { text: String(shipWho) })); ship.appendChild(s1); }
+      if (data.payment){ var s2 = elt('span'); s2.appendChild(document.createTextNode('Pay ')); s2.appendChild(elt('b', { text: String(data.payment) })); ship.appendChild(s2); }
+      app.appendChild(ship);
+    }
+
+    // Item list, with an opt-in "Edit items" toggle above it.
+    var ul = elt('ul', { cls:'items' });
+    items.forEach(function(it, i){ ul.appendChild(itemRow(it || {}, i)); });
+    var head = elt('div', { cls:'items-head' });
+    head.appendChild(elt('span', { cls:'lbl', text: items.length + (items.length === 1 ? ' item' : ' items') }));
+    var editBtn = elt('button', { cls:'edit-toggle', text:'Edit items' });
+    editBtn.addEventListener('click', function(){
+      EDIT_MODE = !EDIT_MODE; editBtn.textContent = EDIT_MODE ? 'Done' : 'Edit items'; applyEditMode(ul);
+    });
+    head.appendChild(editBtn);
+    app.appendChild(head);
     app.appendChild(ul);
+    applyEditMode(ul); // start read-only (quantities locked, checkboxes hidden)
 
-    var bar = elt('div');
-    var approve = elt('button', { cls: 'ok', text: 'Approve' });
-    var reject = elt('button', { cls: 'no', text: 'Reject' });
-    var note = elt('p', { cls: 'err' });
-    function decide(verdict) {
+    // Order-cost breakdown (Items, Shipping, Tax, fees, Order total) when captured at
+    // checkout, else a single Total — at the BOTTOM by the Approve/Reject buttons, like
+    // Amazon's order summary next to "Place your order". Discounts are stored negative.
+    var bd = Array.isArray(data.breakdown) ? data.breakdown : null;
+    if (bd && bd.length){
+      var bdEl = elt('div', { cls:'breakdown' });
+      bd.forEach(function(line){
+        var neg = Number(line.amount) < 0;
+        var r = elt('div', { cls: 'bd-row' + (line.total ? ' bd-total' : '') });
+        // Amazon labels the item-price line "Items"; show it as "Subtotal" (clearer that
+        // it's the pre-shipping/tax sum). Other labels pass through as Amazon wrote them.
+        var lbl = String(line.label);
+        if (/^items?$/i.test(lbl.trim())) lbl = 'Subtotal';
+        r.appendChild(elt('span', { cls:'bd-label', text: lbl }));
+        r.appendChild(elt('span', { cls:'bd-amt', text: (neg ? '-$' : '$') + money(Math.abs(Number(line.amount))) }));
+        bdEl.appendChild(r);
+      });
+      app.appendChild(bdEl);
+    } else {
+      var total = elt('div', { cls:'total' });
+      total.appendChild(elt('span', { cls:'lbl', text:'Total' }));
+      total.appendChild(elt('span', { cls:'amt', text:'$' + money(data.total) }));
+      app.appendChild(total);
+    }
+
+    // The guardian's current selection subtotal, updated live as they keep/drop items.
+    var appr = elt('p', { cls:'approving' });
+    appr.appendChild(document.createTextNode('Approving '));
+    var amtS = elt('span', { cls:'approving-amt' }); amtS.id = 'approvedAmt'; appr.appendChild(amtS);
+    appr.appendChild(document.createTextNode(' in '));
+    var cntS = elt('span'); cntS.id = 'approvedCount'; appr.appendChild(cntS);
+    app.appendChild(appr);
+
+    recomputeTotal();  // reflect the full cart, then update as the guardian edits
+    tickDeadlines();   // paint countdowns immediately, then the interval keeps them live
+
+    var modNote = elt('p', { cls:'mod-note' }); modNote.id = 'modNote';
+    app.appendChild(modNote);
+
+    var bar = elt('div', { cls:'actions' });
+    var approve = elt('button', { cls:'ok', text:'Approve' });
+    approveBtn = approve;
+    var reject = elt('button', { cls:'no', text:'Reject' });
+    var note = elt('p', { cls:'note' });
+    function decide(verdict){
       approve.disabled = reject.disabled = true; note.textContent = '';
+      // On approve, send the guardian's edited selection (kept items + quantities). The
+      // server records what was actually approved; empty selection = nothing kept.
+      var payload = { token:token, verdict:verdict };
+      var modified = false;
+      if (verdict === 'approved'){
+        var sel = guardianSelection();
+        if (!sel.length){ approve.disabled = reject.disabled = false; note.textContent = 'Keep at least one item, or press Reject.'; return; }
+        payload.selection = sel;
+        modified = wasEdited();
+      }
       fetch(DECISION_URL, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: token, verdict: verdict }),
-      }).then(function (r) { return r.json(); }).then(function (res) {
-        if (res && res.ok) {
-          message(verdict === 'approved' ? 'Approved ✓' : 'Rejected', 'You can close this page.');
-        } else if (res && res.reason && REASONS[res.reason]) {
+        method:'POST', headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify(payload),
+      }).then(function(r){ return r.json(); }).then(function(res){
+        if (res && res.ok){
+          // Show the verdict the SERVER recorded (res.status), not the button clicked.
+          var st = res.status || verdict, word = st === 'approved' ? 'Approved' : 'Rejected';
+          var modTag = (st === 'approved' && modified) ? ' (modified)' : '';
+          clear(app);
+          app.appendChild(elt('div', { cls:'done-badge ' + (st==='approved'?'is-approved':'is-rejected'), text: word + modTag }));
+          // Approve does not buy it: Parago only UNLOCKS the shopper's own checkout, so
+          // the shopper still has to click Place Order. Say that honestly, no false promise.
+          var sub = (st === 'approved')
+            ? word + modTag + ' ' + whenFull() + '. The shopper can now complete this purchase in their browser.'
+            : word + ' ' + whenFull() + '. Nothing will be bought. You can close this page.';
+          app.appendChild(elt('p', { cls:'when', text: sub }));
+        } else if (res && res.reason && REASONS[res.reason]){
           message(REASONS[res.reason]);
         } else {
           approve.disabled = reject.disabled = false;
           note.textContent = 'Something went wrong. Please try again.';
         }
-      }).catch(function () {
+      }).catch(function(){
         approve.disabled = reject.disabled = false;
         note.textContent = 'Network error. Check your connection and try again.';
       });
     }
-    approve.addEventListener('click', function () { decide('approved'); });
-    reject.addEventListener('click', function () { decide('rejected'); });
-    bar.appendChild(approve); bar.appendChild(reject); bar.appendChild(note);
-    app.appendChild(bar);
+    approve.addEventListener('click', function(){ decide('approved'); });
+    reject.addEventListener('click', function(){ decide('rejected'); });
+    bar.appendChild(approve); bar.appendChild(reject);
+    app.appendChild(bar); app.appendChild(note);
   }
 
-  function load() {
-    if (!token) { message('Invalid link'); return; }
-    fetch(DECISION_URL + '?token=' + encodeURIComponent(token))
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
+  // Theme: Light / Dark, and tapping Dark again deepens to AMOLED (pure black). "auto"
+  // (no explicit choice) follows the device. The shopper's extension theme arrives with
+  // the request (data.theme) and is used as the default until the guardian picks one here.
+  var THEME_KEY = 'parago_theme', THEME_VALS = ['auto','light','dark','amoled'], CUR_THEME = 'auto';
+  function storedTheme(){ try { var t = localStorage.getItem(THEME_KEY); return THEME_VALS.indexOf(t) >= 0 ? t : null; } catch(e){ return null; } }
+  function systemDark(){ try { return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme:dark)').matches); } catch(e){ return false; } }
+  function resolveTheme(t){ return (t === 'light' || t === 'dark' || t === 'amoled') ? t : (systemDark() ? 'dark' : 'light'); }
+  function applyThemeAttr(t){
+    var root = document.documentElement;
+    if (t === 'light' || t === 'dark' || t === 'amoled') root.setAttribute('data-theme', t);
+    else root.removeAttribute('data-theme');
+  }
+  function paintThemeSeg(){
+    var lb = document.querySelector('[data-theme-choice="light"]'), db = document.querySelector('[data-theme-choice="dark"]');
+    if (!lb || !db) return;
+    var r = resolveTheme(CUR_THEME), darkActive = (r === 'dark' || r === 'amoled');
+    lb.classList.toggle('active', r === 'light');
+    db.classList.toggle('active', darkActive);
+    db.textContent = (CUR_THEME === 'amoled') ? 'Dark (AMOLED)' : 'Dark';
+  }
+  function setTheme(t, persist){
+    CUR_THEME = t; applyThemeAttr(t); paintThemeSeg();
+    if (persist){ try { localStorage.setItem(THEME_KEY, t); } catch(e){} }
+  }
+  function initThemeControls(){
+    CUR_THEME = storedTheme() || 'auto';
+    applyThemeAttr(CUR_THEME); paintThemeSeg();
+    var lb = document.querySelector('[data-theme-choice="light"]'), db = document.querySelector('[data-theme-choice="dark"]');
+    if (lb) lb.addEventListener('click', function(){ setTheme('light', true); });
+    if (db) db.addEventListener('click', function(){ setTheme(CUR_THEME === 'dark' ? 'amoled' : 'dark', true); });
+    try { window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change', function(){ if (CUR_THEME === 'auto') paintThemeSeg(); }); } catch(e){}
+  }
+
+  function load(){
+    if (!token){ message('Invalid link'); return; }
+    clear(app);
+    app.appendChild((function(){ var d = elt('div',{cls:'center'}); d.appendChild(elt('div',{cls:'spinner'})); d.appendChild(document.createTextNode('Loading this request…')); return d; })());
+    // Abort a hung request so the spinner never spins forever.
+    var ctrl = new AbortController();
+    var timer = setTimeout(function(){ ctrl.abort(); }, 15000);
+    fetch(DECISION_URL + '?token=' + encodeURIComponent(token), { signal: ctrl.signal })
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        clearTimeout(timer);
         if (data && data.ok) renderApproval(data);
         else message(REASONS[data && data.reason] || 'This link cannot be used.');
       })
-      .catch(function () { message('Could not load this request.', 'Check your connection and refresh the page.'); });
+      .catch(function(){
+        clearTimeout(timer);
+        centered([
+          elt('h1', { text:'Could not load this request.' }),
+          elt('p', { cls:'when', text:'Check your connection.' }),
+          (function(){ var b = elt('button',{cls:'retry',text:'Try again'}); b.addEventListener('click', load); return b; })(),
+        ]);
+      });
   }
+  initThemeControls();
   load();
 </script>
 </body>

@@ -48,6 +48,11 @@ export class MockRelay {
     return Object.values(map).filter((r) => r.status === RELAY_STATUS.PENDING);
   }
 
+  // No backend in the mock; the "Order placed" ping is a Supabase-only concern.
+  async reportPlaced() { /* no-op */ }
+  // Heads-up notification is a Supabase/Telegram-only concern.
+  async notify() { /* no-op */ }
+
   async decide(id, verdict) {
     const map = await readAll();
     if (map[id]) {

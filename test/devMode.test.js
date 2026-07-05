@@ -8,6 +8,12 @@ describe('developer mode', () => {
     expect(DEFAULTS.devMode).toBe(false);
   });
 
+  it('telegram is the default delivery method, with telegram config keys present but empty', () => {
+    expect(DEFAULTS.deliveryMethod).toBe('telegram');
+    expect(DEFAULTS.telegramLinkCode).toBe('');
+    expect(DEFAULTS.telegramLinked).toBe(false);
+  });
+
   it('sample cart carries the rich item fields the email/page render', () => {
     expect(SAMPLE_CART.items.length).toBeGreaterThan(0);
     for (const it of SAMPLE_CART.items) {

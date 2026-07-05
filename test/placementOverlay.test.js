@@ -7,24 +7,33 @@ import {
 
 afterEach(() => { removePlacementOverlay(); document.body.innerHTML = ''; });
 
-describe('placementOverlay', () => {
-  it('shows the processing screen and blocks the page', () => {
+describe('placementOverlay (all states are non-blocking corner toasts)', () => {
+  it('renders a state as a corner toast, not a full-page blocking overlay', () => {
     showProcessing();
     expect(isPlacementOverlayShown()).toBe(true);
+    expect(document.getElementById('parago-placement-toast')).not.toBeNull();
+    expect(document.querySelector('#parago-placement-overlay')).toBeNull(); // no blocking card
     expect(document.body.textContent).toContain('being processed');
   });
 
-  it('replaces content when switching messages', () => {
+  it('swaps states in place (one toast at a time)', () => {
     showProcessing();
     showConfirmed();
-    expect(document.querySelectorAll('#parago-placement-overlay').length).toBe(1);
+    expect(document.querySelectorAll('#parago-placement-toast').length).toBe(1);
     expect(document.body.textContent).toContain('confirmed');
   });
 
-  it('manual fallback wires the button to the callback', () => {
+  it('finishing, confirmed, and failed each render as the toast', () => {
+    showFinishing();
+    expect(isPlacementOverlayShown()).toBe(true);
+    showCouldNotComplete();
+    expect(document.body.textContent).toContain("couldn't");
+  });
+
+  it('manual fallback wires the toast button to the callback', () => {
     let clicked = false;
     showManualFallback(() => { clicked = true; });
-    document.querySelector('.parago-pl-button').click();
+    document.querySelector('.parago-pl-toast-btn').click();
     expect(clicked).toBe(true);
   });
 

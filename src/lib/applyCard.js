@@ -34,7 +34,9 @@ const REASON_KEYS = {
   sponsored: 'badge_sponsored',
   low_rating: 'badge_low_rating',
   few_ratings: 'badge_few_ratings',
+  no_reviews: 'badge_no_reviews',
   not_prime: 'badge_not_prime',
+  over_price: 'badge_over_price',
 };
 
 // Short explanations shown in the hover/focus popover, per reason.
@@ -42,11 +44,13 @@ const WHY_KEYS = {
   sponsored: 'why_sponsored',
   low_rating: 'why_low_rating',
   few_ratings: 'why_few_ratings',
+  no_reviews: 'why_no_reviews',
   not_prime: 'why_not_prime',
+  over_price: 'why_over_price',
 };
 
 // Canonical display order for badge text and popover lines.
-const REASON_ORDER = ['sponsored', 'low_rating', 'few_ratings', 'not_prime'];
+const REASON_ORDER = ['sponsored', 'low_rating', 'few_ratings', 'no_reviews', 'not_prime', 'over_price'];
 
 export function badgeText(reasons) {
   return REASON_ORDER

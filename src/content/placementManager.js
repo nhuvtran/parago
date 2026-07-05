@@ -4,7 +4,7 @@
 // snapshot AND we hold an exclusive claim AND we can confirm placement.
 import { createPlacementStore } from '../lib/placementStore.js';
 import { buildSnapshot, snapshotsMatch } from '../lib/orderSnapshot.js';
-import { parseCart } from '../lib/parseCart.js';
+import { parseCart, parseCheckoutInfo } from '../lib/parseCart.js';
 import {
   findPlaceOrderControl, clickPlaceOrder, detectOrderConfirmation, parseFinalOrderTotal,
 } from '../lib/placeOrder.js';
@@ -25,7 +25,10 @@ const PLACEMENT_MAX_AGE_MS = 48 * 60 * 60 * 1000;
 function liveSnapshot(createdAt) {
   const parsed = parseCart(document);
   const total = parseFinalOrderTotal(document);
-  return buildSnapshot({ items: parsed.items, total: total != null ? total : parsed.total }, createdAt);
+  const ci = parseCheckoutInfo(document) || {};
+  // Include ship-to + payment so snapshotsMatch can refuse to place if the shopper changed
+  // the destination or card after the guardian approved (see orderSnapshot.snapshotsMatch).
+  return buildSnapshot({ items: parsed.items, total: total != null ? total : parsed.total, address: ci.shipTo, payment: ci.payment }, createdAt);
 }
 
 // Ask the single background worker for an exclusive claim on this order id. Returns
@@ -66,6 +69,7 @@ export async function runPlacementCompletion({
     if (rec.status === 'placing') {
       if (detectOrderConfirmation(document)) {
         await store.patch(id, { status: 'placed', placedAt: now() });
+        try { await relay.reportPlaced?.(id); } catch (e) { /* best effort: guardian ping */ }
         showConfirmed();
       } else if (rec.placingAt && (now() - rec.placingAt) > PLACING_TIMEOUT_MS) {
         await store.patch(id, { status: 'failed', lastError: 'no_confirmation' });

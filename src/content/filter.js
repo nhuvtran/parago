@@ -17,9 +17,11 @@ function processAll() {
 
   const parsedList = [];
   let anyPrime = false;
+  let anyRated = false;
   for (const card of document.querySelectorAll(CARD_SELECTOR)) {
     const parsed = parseCard(card);
     if (parsed.prime) anyPrime = true;
+    if (parsed.stars != null || parsed.ratingsCount != null) anyRated = true;
     parsedList.push([card, parsed]);
   }
   // Fail-safe for the non-Prime rule: only apply it when a Prime badge is actually
@@ -27,7 +29,11 @@ function processAll() {
   // recognize) render no Prime badge at all, which would otherwise flag EVERY item as
   // non-Prime. When nothing reads as Prime, suppress the rule rather than grey the whole
   // page — consistent with treating unknowns as "don't flag".
-  const eff = (settings.flagNonPrime && !anyPrime) ? { ...settings, flagNonPrime: false } : settings;
+  // Same fail-safe for No-reviews: if we couldn't read a rating on ANY card, we're likely
+  // on a layout we don't parse, so don't flag every item as unreviewed.
+  let eff = settings;
+  if (settings.flagNonPrime && !anyPrime) eff = { ...eff, flagNonPrime: false };
+  if (settings.flagNoReviews && !anyRated) eff = { ...eff, flagNoReviews: false };
   for (const [card, parsed] of parsedList) {
     applyCard(card, decide(parsed, eff), settings.mode);
   }

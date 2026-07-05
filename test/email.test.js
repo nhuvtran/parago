@@ -28,8 +28,25 @@ describe('buildBrevoPayload', () => {
     expect(p.sender).toEqual({ email: 'noreply@example.com', name: 'Parago' });
     expect(p.to).toEqual([{ email: 'helper@example.com', name: 'Alex' }]);
   });
+  it('strips "Opens in a new tab" from titles and drops a spinner image', () => {
+    const p = buildBrevoPayload({
+      ...opts,
+      items: [{ title: 'MAREE Batana Oil Opens in a new tab', price: 9.99, image: 'https://m.media-amazon.com/images/G/01/ui/loadIndicators/loading-large.gif' }],
+    });
+    expect(p.htmlContent).toContain('MAREE Batana Oil');
+    expect(p.htmlContent).not.toMatch(/opens in a new tab/i);
+    expect(p.textContent).not.toMatch(/opens in a new tab/i);
+    expect(p.subject).not.toMatch(/opens in a new tab/i);
+    expect(p.htmlContent).not.toContain('loading-large.gif'); // spinner not emitted as <img>
+  });
   it('puts the total in the subject', () => {
     expect(buildBrevoPayload(opts).subject).toContain('42.50');
+  });
+  it('names the first item and the extra count in the subject', () => {
+    const p = buildBrevoPayload(opts);
+    expect(p.subject).toContain('Reading glasses'); // first item, so multiple requests are distinguishable
+    expect(p.subject).toContain('(+1 more)');       // opts has 2 items
+    expect(p.subject).toContain('42.50');
   });
   it('includes the approval link and item titles in the HTML and text', () => {
     const p = buildBrevoPayload(opts);
